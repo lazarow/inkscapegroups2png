@@ -6,6 +6,7 @@ const { execSync } = require('child_process');
 const packer = require('gamefroot-texture-packer');
 const fsExtra = require('fs-extra');
 const Jimp = require('jimp');
+const JimpExtra = require('./jimp-extra.js');
 // </editor-fold>
 
 const options = commandLineArgs([
@@ -14,7 +15,8 @@ const options = commandLineArgs([
     { name: 'out', defaultValue: ''},
     { name: 'dpi', type: Number, defaultValue: 90},
     { name: 'prefixes', multiple: true, defaultValue: [] },
-    { name: 'packerformat', defaultValue: 'json' }
+    { name: 'packerformat', defaultValue: 'json' },
+    { name: 'masktexture' }
 ]);
 
 // <editor-fold desc="Command options validation" defaultstate="collapsed">
@@ -44,13 +46,25 @@ if (fs.accessSync(options.out, fs.constants.W_OK) === false) {
     process.exit();
 }
 fsExtra.emptyDirSync(options.out);
+if (
+    'masktexture' in options
+    && (
+        fs.existsSync(options.masktexture) === false
+        || fs.accessSync(options.masktexture, fs.constants.R_OK) === false
+    )
+) {
+    console.error('The mask texture seems to be not readable, maybe the path is invalid?');
+    process.exit();
+}
 // </editor-fold>
 
 let texture = null;
 
 const initialization = () => new Promise(resolve => {
     const promises = [];
-    promises.push(Jimp.read('texture.png').then(image => texture = image));
+    if ('masktexture' in options) {
+        promises.push(Jimp.read(options.masktexture).then(image => (texture = image)));
+    }
     Promise.all(promises).then(() => {
         resolve();
     });
@@ -62,7 +76,7 @@ const generating = () => new Promise(resolve => {
     const svg = fs.readFileSync(options.svg, 'utf8');
     options.prefixes.forEach(prefix => {
         svg.match(new RegExp(prefix + '[^\\s\\\\"\']+', 'g')).forEach(id => {
-            const command = options.inkscape + ' --export-id=' + id + ' --export-dpi=' + options.dpi
+            const command = '"' + options.inkscape + '" --export-id=' + id + ' --export-dpi=' + options.dpi
                 + ' --export-id-only --export-png=' + options.out + '/' + id + '.png ' + options.svg;
             execSync(command);
             promises.push(Jimp.read(options.out + '/' + id + '.png').then(image => {
@@ -80,7 +94,9 @@ const generating = () => new Promise(resolve => {
 const postgenerating = (images) => new Promise(resolve => {
     const promises = [];
     for (let image of images) {
-        image.mask(texture, 0, 0);
+        if (texture !== null) {
+            JimpExtra.mask(image, texture);
+        }
         promises.push(image.writeAsync(image.filename));
     }
     Promise.all(promises).then(() => {
@@ -90,11 +106,14 @@ const postgenerating = (images) => new Promise(resolve => {
 
 const completion = () => new Promise(resolve => {
     options.prefixes.forEach(prefix => {
+        console.log(options.out + '/' + prefix + '*.png');
         packer(options.out + '/' + prefix + '*.png', {
             format: options.packerformat,
             name: prefix,
             path: options.out
-        });
+        }, function (err) {
+  if (err) console.log(err);
+});
     });
     resolve();
 });
