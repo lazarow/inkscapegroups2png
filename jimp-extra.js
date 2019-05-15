@@ -1,7 +1,9 @@
 module.exports = {
     mask(image, mask) {
         image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
-            if (image.bitmap.data[idx + 3] > 0) {
+            let hasAlpha = image.bitmap.data[idx + 3] > 0;
+            let isWhite = image.bitmap.data[idx] === 255 && image.bitmap.data[idx + 1] === 255 && image.bitmap.data[idx + 2] === 255;
+            if (hasAlpha && ! isWhite) {
                 /**
                  * @url: https://www.w3.org/TR/compositing/#simplealphacompositing
                  */
