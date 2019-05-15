@@ -13,7 +13,7 @@ const options = commandLineArgs([
     { name: 'inkscape', defaultValue: '/usr/bin/inkscape'},
     { name: 'svg', defaultValue: ''},
     { name: 'out', defaultValue: ''},
-    { name: 'dpi', type: Number, defaultValue: 90},
+    { name: 'dpi', type: Number, defaultValue: 72},
     { name: 'prefixes', multiple: true, defaultValue: [] },
     { name: 'packerformat', defaultValue: 'json' },
     { name: 'masktexture' }
