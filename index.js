@@ -88,7 +88,7 @@ const generating = () => new Promise(resolve => {
                 image.filename = options.out + '/' + id + '.png';
                 images.push(image);
             }));
-            console.log('The object ' + id + '.png has been exported');
+            console.log('The object ' + id + ' has been exported');
         });
     });
     Promise.all(promises).then(() => {
