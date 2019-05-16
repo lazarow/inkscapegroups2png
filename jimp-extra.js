@@ -7,7 +7,7 @@ module.exports = {
                 /**
                  * @url: https://www.w3.org/TR/compositing/#simplealphacompositing
                  */
-                let maskIdx = mask.getPixelIndex(x, y);
+                let maskIdx = mask.getPixelIndex(x % mask.bitmap.width, y % mask.bitmap.height);
                 let as = mask.bitmap.data[maskIdx + 3] / 255;
                 let ab = image.bitmap.data[idx + 3] / 255;
                 for (let i of [0, 1, 2]) {
