@@ -7,6 +7,7 @@ const packer = require('gamefroot-texture-packer');
 const fsExtra = require('fs-extra');
 const Jimp = require('jimp');
 const JimpExtra = require('./jimp-extra.js');
+const path = require('path');
 // </editor-fold>
 
 const options = commandLineArgs([
@@ -15,8 +16,8 @@ const options = commandLineArgs([
     { name: 'out', defaultValue: ''},
     { name: 'dpi', type: Number, defaultValue: 72},
     { name: 'prefixes', multiple: true, defaultValue: [] },
-    { name: 'packerformat', defaultValue: 'json' },
-    { name: 'masktexture' }
+    { name: 'texture' },
+    { name: 'pixelator' }
 ]);
 
 // <editor-fold desc="Command options validation" defaultstate="collapsed">
@@ -47,13 +48,17 @@ if (fs.accessSync(options.out, fs.constants.W_OK) === false) {
 }
 fsExtra.emptyDirSync(options.out);
 if (
-    'masktexture' in options
-    && (
-        fs.existsSync(options.masktexture) === false
-        || fs.accessSync(options.masktexture, fs.constants.R_OK) === false
-    )
+    'texture' in options
+    && (fs.existsSync(options.texture) === false || fs.accessSync(options.texture, fs.constants.R_OK) === false)
 ) {
     console.error('The mask texture seems to be not readable, maybe the path is invalid?');
+    process.exit();
+}
+if (
+    'pixelator' in options
+    && (fs.existsSync(options.pixelator) === false || executable.sync(options.pixelator) === false)
+) {
+    console.error('Pixelator seems to be not executable, maybe the path is invalid?');
     process.exit();
 }
 // </editor-fold>
@@ -62,8 +67,8 @@ let texture = null;
 
 const initialization = () => new Promise(resolve => {
     const promises = [];
-    if ('masktexture' in options) {
-        promises.push(Jimp.read(options.masktexture).then(image => (texture = image)));
+    if ('texture' in options) {
+        promises.push(Jimp.read(options.texture).then(image => (texture = image)));
     }
     Promise.all(promises).then(() => {
         resolve();
@@ -93,27 +98,38 @@ const generating = () => new Promise(resolve => {
 
 const postgenerating = (images) => new Promise(resolve => {
     const promises = [];
+    const imagesFilenames = [];
     for (let image of images) {
         if (texture !== null) {
             JimpExtra.mask(image, texture);
         }
         promises.push(image.writeAsync(image.filename));
+        imagesFilenames.push(image.filename);
     }
     Promise.all(promises).then(() => {
+        if ('pixelator' in options) {
+            const pixelatorDir = path.dirname(options.pixelator);
+            imagesFilenames.forEach(filename => {
+                const absoluteFilename = path.resolve(filename);
+                const command = 'cd "' + pixelatorDir + '" && "' + options.pixelator + '" --override --stroke=none "'
+                    + absoluteFilename + '" "' + absoluteFilename + '"';
+                execSync(command);
+                console.log('The file: ' + filename + ' has been pixelated');
+            });
+        }
         resolve();
     });
 });
 
 const completion = () => new Promise(resolve => {
     options.prefixes.forEach(prefix => {
-        console.log(options.out + '/' + prefix + '*.png');
         packer(options.out + '/' + prefix + '*.png', {
-            format: options.packerformat,
+            format: 'json',
             name: prefix,
             path: options.out
         }, function (err) {
-  if (err) console.log(err);
-});
+            if (err) console.log(err);
+        });
     });
     resolve();
 });
