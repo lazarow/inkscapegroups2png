@@ -18,7 +18,8 @@ const options = commandLineArgs([
     { name: 'resize', type: Number, defaultValue: 100},
     { name: 'prefixes', multiple: true, defaultValue: [] },
     { name: 'texture' },
-    { name: 'pixelator' }
+    { name: 'pixelator' },
+    { name: 'blur' }
 ]);
 
 // <editor-fold desc="Command options validation" defaultstate="collapsed">
@@ -127,6 +128,16 @@ const postgenerating = (images) => new Promise(resolve => {
                     + '"' + absoluteFilename + '"';
                 execSync(command);
                 console.log('The file: ' + filename + ' has been resized');
+            });
+        }
+        if ('blur' in options) {
+            imagesFilenames.forEach(filename => {
+                const absoluteFilename = path.resolve(filename);
+                const command = 'convert "' + absoluteFilename + '" '
+                    + '-blur ' + options.blur + ' '
+                    + '"' + absoluteFilename + '"';
+                execSync(command);
+                console.log('The file: ' + filename + ' has been blurred');
             });
         }
         resolve();
