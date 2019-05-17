@@ -14,7 +14,8 @@ const options = commandLineArgs([
     { name: 'inkscape', defaultValue: '/usr/bin/inkscape'},
     { name: 'svg', defaultValue: ''},
     { name: 'out', defaultValue: ''},
-    { name: 'dpi', type: Number, defaultValue: 72},
+    { name: 'dpi', type: Number, defaultValue: 192},
+    { name: 'resize', type: Number, defaultValue: 100},
     { name: 'prefixes', multiple: true, defaultValue: [] },
     { name: 'texture' },
     { name: 'pixelator' }
@@ -111,10 +112,21 @@ const postgenerating = (images) => new Promise(resolve => {
             const pixelatorDir = path.dirname(options.pixelator);
             imagesFilenames.forEach(filename => {
                 const absoluteFilename = path.resolve(filename);
-                const command = 'cd "' + pixelatorDir + '" && "' + options.pixelator + '" --override --stroke=none "'
+                const command = 'cd "' + pixelatorDir + '" && "' + options.pixelator + '" '
+                    + '--pixelate=3 --smooth=1 --enhance=0.0 --palette_mode=file --override --stroke=none "'
                     + absoluteFilename + '" "' + absoluteFilename + '"';
                 execSync(command);
                 console.log('The file: ' + filename + ' has been pixelated');
+            });
+        }
+        if (options.resize !== 100) {
+            imagesFilenames.forEach(filename => {
+                const absoluteFilename = path.resolve(filename);
+                const command = 'convert "' + absoluteFilename + '" '
+                    + '-interpolate Nearest -filter point -resize ' + options.resize + '% '
+                    + '"' + absoluteFilename + '"';
+                execSync(command);
+                console.log('The file: ' + filename + ' has been resized');
             });
         }
         resolve();
