@@ -16,10 +16,8 @@ const options = commandLineArgs([
     { name: 'out', defaultValue: ''},
     { name: 'dpi', type: Number, defaultValue: 192},
     { name: 'resize', type: Number, defaultValue: 100},
-    { name: 'prefixes', multiple: true, defaultValue: [] },
     { name: 'texture' },
-    { name: 'pixelator' },
-    { name: 'blur' }
+    { name: 'pixelator' }
 ]);
 
 // <editor-fold desc="Command options validation" defaultstate="collapsed">
@@ -65,99 +63,156 @@ if (
 }
 // </editor-fold>
 
-let texture = null;
+// <editor-fold desc="Helpers" defaultstate="collapsed">
+String.prototype.matchAll = function (regexp) {
+    let matches = [];
+    this.replace(regexp, function () {
+        let arr = ([]).slice.call(arguments, 0);
+        let extras = arr.splice(-2);
+        arr.index = extras[0];
+        arr.input = extras[1];
+        matches.push(arr);
+    });
+    return matches.length ? matches : null;
+};
+// </editor-fold>
+
+const svgDir = path.dirname(options.svg);
+const textures = {};
+const groups = {};
 
 const initialization = () => new Promise(resolve => {
     const promises = [];
-    if ('texture' in options) {
-        promises.push(Jimp.read(options.texture).then(image => (texture = image)));
-    }
-    Promise.all(promises).then(() => {
-        resolve();
-    });
-});
-
-const generating = () => new Promise(resolve => {
-    const promises = [];
-    const images = [];
-    const svg = fs.readFileSync(options.svg, 'utf8');
-    options.prefixes.forEach(prefix => {
-        svg.match(new RegExp(prefix + '[^\\s\\\\"\']+', 'g')).forEach(id => {
-            const command = '"' + options.inkscape + '" --export-id=' + id + ' --export-dpi=' + options.dpi
-                + ' --export-id-only --export-png=' + options.out + '/' + id + '.png ' + options.svg;
-            execSync(command);
-            promises.push(Jimp.read(options.out + '/' + id + '.png').then(image => {
-                image.filename = options.out + '/' + id + '.png';
-                images.push(image);
-            }));
-            console.log('The object ' + id + ' has been exported');
-        });
-    });
-    Promise.all(promises).then(() => {
-        resolve(images);
-    });
-});
-
-const postgenerating = (images) => new Promise(resolve => {
-    const promises = [];
-    const imagesFilenames = [];
-    for (let image of images) {
-        if (texture !== null) {
-            JimpExtra.mask(image, texture);
+    const svg = fs.readFileSync(options.svg, 'utf8').replace(/\n/g, ' ');
+    const items = (svg.match(/<[^/<]+?export="[^"]+?"[^>]*?>/gi) || []).map(tag => {
+        let item = {
+            filename: null,
+            image: null
+        };
+        for (let match of tag.matchAll(/([a-zA-Z0-9\-]+?)="([^"]+?)"/gi)) {
+            item[match[1]] = match[2];
+            if (match[1] === 'texture' && match[2] !== 'false') {
+                promises.push(Jimp.read(svgDir + '/' + match[2]).then(image => (textures[match[2]] = image)));
+            }
         }
-        promises.push(image.writeAsync(image.filename));
-        imagesFilenames.push(image.filename);
+        return item;
+    });
+    if ('texture' in options) {
+        promises.push(Jimp.read(svgDir + '/' + options.texture).then(image => (textures.texture = image)));
     }
     Promise.all(promises).then(() => {
-        if ('pixelator' in options) {
-            const pixelatorDir = path.dirname(options.pixelator);
-            imagesFilenames.forEach(filename => {
-                const absoluteFilename = path.resolve(filename);
+        resolve(items);
+    });
+});
+
+const generating = (items) => new Promise(resolve => {
+    const promises = [];
+    items.map(item => {
+        const command = '"' + options.inkscape + '" --export-id=' + item.id + ' --export-dpi=' + options.dpi
+            + ' --export-id-only --export-png=' + options.out + '/' + item.export + '.png ' + options.svg;
+        execSync(command);
+        console.log('The element ' + item.export + ' has been exported');
+        promises.push(Jimp.read(options.out + '/' + item.export + '.png').then(image => {
+            item.filename = options.out + '/' + item.export + '.png';
+            if ('pack' in item) {
+                if (item.pack in groups === false) {
+                    groups[item.pack] = [];
+                }
+                groups[item.pack].push(item.filename);
+            }
+            item.image = image;
+        }));
+        return item;
+    });
+    Promise.all(promises).then(() => {
+        resolve(items);
+    });
+});
+
+const addingTextures = (items) => new Promise(resolve => {
+    const promises = [];
+    items.forEach(item => {
+        if ('texture' in item) {
+            JimpExtra.mask(item.image, textures[item.texture]);
+        } else if ('texture' in options ) {
+            JimpExtra.mask(item.image, textures['texture']);
+        }
+        console.log('The file: ' + item.filename + ' has been textured');
+        promises.push(item.image.writeAsync(item.filename));
+    });
+    Promise.all(promises).then(() => {
+        resolve(items);
+    });
+});
+
+const pixelating = (items) => new Promise(resolve => {
+    if ('pixelator' in options) {
+        const pixelatorDir = path.dirname(options.pixelator);
+        items.forEach(item => {
+            if (item['pixelator'] !== 'false') {
+                const absoluteFilename = path.resolve(item.filename);
                 const command = 'cd "' + pixelatorDir + '" && "' + options.pixelator + '" '
-                    + '--pixelate=3 --smooth=1 --enhance=0.0 --palette_mode=file --override --stroke=none "'
+                    + '--pixelate=' + (item['pixelator-pixelate'] || 3) + ' '
+                    + '--smooth=' + (item['pixelator-smooth'] || 1) + ' '
+                    + '--enhance=' + (item['pixelator-enchance'] || '0.0') + ' '
+                    + '--palette_mode=' + (item['pixelator-palletemode'] || 'file') + ' '
+                    + '--override '
+                    + '--stroke=' + (item['pixelator-stroke'] || 'none') + ' '
+                    + '"'
                     + absoluteFilename + '" "' + absoluteFilename + '"';
                 execSync(command);
-                console.log('The file: ' + filename + ' has been pixelated');
-            });
-        }
-        if (options.resize !== 100) {
-            imagesFilenames.forEach(filename => {
-                const absoluteFilename = path.resolve(filename);
-                const command = 'convert "' + absoluteFilename + '" '
-                    + '-interpolate Nearest -filter point -resize ' + options.resize + '% '
-                    + '"' + absoluteFilename + '"';
-                execSync(command);
-                console.log('The file: ' + filename + ' has been resized');
-            });
-        }
-        if ('blur' in options) {
-            imagesFilenames.forEach(filename => {
-                const absoluteFilename = path.resolve(filename);
-                const command = 'convert "' + absoluteFilename + '" '
-                    + '-blur ' + options.blur + ' '
-                    + '"' + absoluteFilename + '"';
-                execSync(command);
-                console.log('The file: ' + filename + ' has been blurred');
-            });
-        }
-        resolve();
-    });
+                console.log('The file: ' + item.filename + ' has been pixelated');
+            }
+        });
+    }
+    resolve(items);
 });
 
-const completion = () => new Promise(resolve => {
-    options.prefixes.forEach(prefix => {
-        packer(options.out + '/' + prefix + '*.png', {
+const resizing = (items) => new Promise(resolve => {
+    if (options.resize !== 100) {
+        items.forEach(item => {
+            const absoluteFilename = path.resolve(item.filename);
+            const command = 'convert "' + absoluteFilename + '" '
+                + '-interpolate Nearest -filter point -resize ' + options.resize + '% '
+                + '"' + absoluteFilename + '"';
+            execSync(command);
+            console.log('The file: ' + item.filename + ' has been resized');
+        });
+    }
+    resolve(items);
+});
+
+const blurring = (items) => new Promise(resolve => {
+    items.forEach(item => {
+        if ('blur' in item) {
+            const absoluteFilename = path.resolve(item.filename);
+            const command = 'convert "' + absoluteFilename + '" '
+                + '-blur ' + item.blur + ' '
+                + '"' + absoluteFilename + '"';
+            execSync(command);
+            console.log('The file: ' + item.filename + ' has been blurred');
+        }
+    });
+    resolve(items);
+});
+
+const packing = () => new Promise(resolve => {
+    for (let name in groups) {
+        packer(groups[name], {
             format: 'json',
-            name: prefix,
+            name: name,
             path: options.out
         }, function (err) {
             if (err) console.log(err);
         });
-    });
+    }
     resolve();
 });
 
 initialization()
     .then(generating)
-    .then(postgenerating)
-    .then(completion);
+    .then(addingTextures)
+    .then(pixelating)
+    .then(resizing)
+    .then(blurring)
+    .then(packing);
