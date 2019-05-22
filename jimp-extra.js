@@ -18,5 +18,25 @@ module.exports = {
                 image.bitmap.data[idx + 3] = Math.floor((as + ab * (1 - as)) * 255);
             }
         });
+    },
+    getShaderAnimationFrames(image, pixelShader, nofFrames = 3) {
+        const frames = [];
+        const next = image.clone();
+        while (nofFrames--) {
+            const previous = next.clone();
+            next.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
+                pixelShader(
+                    previous.bitmap.data,
+                    next.bitmap.data,
+                    x,
+                    y,
+                    idx,
+                    image.bitmap.width,
+                    image.bitmap.height
+                );
+            });
+            frames.push(next.clone());
+        }
+        return frames;
     }
 };

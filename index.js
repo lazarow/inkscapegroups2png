@@ -210,6 +210,48 @@ const blurring = (items) => new Promise(resolve => {
     resolve(items);
 });
 
+const reloading = (items) => new Promise(resolve => {
+    const promises = [];
+    items.forEach(item => {
+        promises.push(Jimp.read(item.filename).then(image => {
+            item.image = image;
+            console.log('The file: ' + item.filename + ' has been reloaded');
+        }));
+    });
+    Promise.all(promises).then(() => {
+        resolve(items);
+    });
+});
+
+const animating = (items) => new Promise(resolve => {
+    const promises = [];
+    items.forEach(item => {
+        let frames = [];
+        if ('animation' in item && item.animation === 'make-me-red') {
+            frames = JimpExtra.getShaderAnimationFrames(item.image, (previous, next, x, y, idx, width, height) => {
+                if (previous[idx + 3] > 0) {
+                    next[idx] = 255;
+                    next[idx + 1] = 0;
+                    next[idx + 2] = 0;
+                }
+            }, item['animation-frames'] || 1);
+        }
+        for (let frameKey in frames) {
+            const filename = options.out + '/' + item.export + '-anim' + frameKey + '.png';
+            promises.push(frames[frameKey].writeAsync(filename));
+            if ('pack' in item) {
+                groups[item.pack].push(filename);
+            }
+        }
+        if (frames.length) {
+            console.log('The file: ' + item.filename + ' has been animated');
+        }
+    });
+    Promise.all(promises).then(() => {
+        resolve(items);
+    });
+});
+
 const packing = () => new Promise(resolve => {
     for (let name in groups) {
         packer(groups[name], {
@@ -230,4 +272,6 @@ initialization()
     .then(resizing)
     .then(extending)
     .then(blurring)
+    .then(reloading)
+    .then(animating)
     .then(packing);
