@@ -236,6 +236,15 @@ const animating = (items) => new Promise(resolve => {
                 }
             }, item['animation-frames'] || 1);
         }
+        if ('animation' in item && item.animation === 'horizontal-mirror') {
+            frames = JimpExtra.getShaderAnimationFrames(item.image, (previous, next, x, y, idx, width, height) => {
+                let _idx = item.image.getPixelIndex(width - x, y);
+                next[idx] = previous[_idx];
+                next[idx + 1] = previous[_idx + 1];
+                next[idx + 2] = previous[_idx + 2];
+                next[idx + 3] = previous[_idx + 3];
+            }, item['animation-frames'] || 1);
+        }
         for (let frameKey in frames) {
             const filename = options.out + '/' + item.export + '-anim' + frameKey + '.png';
             promises.push(frames[frameKey].writeAsync(filename));
@@ -244,7 +253,7 @@ const animating = (items) => new Promise(resolve => {
             }
         }
         if (frames.length) {
-            console.log('The file: ' + item.filename + ' has been animated');
+            console.log('The file: ' + item.filename + ' has been animated (' + item.animation + ')');
         }
     });
     Promise.all(promises).then(() => {
