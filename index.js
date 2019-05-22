@@ -182,6 +182,20 @@ const resizing = (items) => new Promise(resolve => {
     resolve(items);
 });
 
+const extending = (items) => new Promise(resolve => {
+    items.forEach(item => {
+        if ('extent' in item && 'gravity' in item) {
+            const absoluteFilename = path.resolve(item.filename);
+            const command = 'convert "' + absoluteFilename + '" '
+                + '-background None -gravity ' + item.gravity + ' -extent ' + item.extent + ' '
+                + '"' + absoluteFilename + '"';
+            execSync(command);
+            console.log('The file: ' + item.filename + ' has been extented');
+        }
+    });
+    resolve(items);
+});
+
 const blurring = (items) => new Promise(resolve => {
     items.forEach(item => {
         if ('blur' in item) {
@@ -214,5 +228,6 @@ initialization()
     .then(addingTextures)
     .then(pixelating)
     .then(resizing)
+    .then(extending)
     .then(blurring)
     .then(packing);
