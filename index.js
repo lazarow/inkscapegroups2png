@@ -87,7 +87,9 @@ const initialization = () => new Promise(resolve => {
     const items = (svg.match(/<[^/<]+?export="[^"]+?"[^>]*?>/gi) || []).map(tag => {
         let item = {
             filename: null,
-            image: null
+            image: null,
+            width: null,
+            height: null
         };
         for (let match of tag.matchAll(/([a-zA-Z0-9\-]+?)="([^"]+?)"/gi)) {
             item[match[1]] = match[2];
@@ -121,6 +123,8 @@ const generating = (items) => new Promise(resolve => {
                 groups[item.pack].push(item.filename);
             }
             item.image = image;
+            item.width = image.bitmap.width;
+            item.height = image.bitmap.height;
         }));
         return item;
     });
@@ -190,6 +194,9 @@ const extending = (items) => new Promise(resolve => {
                 + '-background None -gravity ' + item.gravity + ' -extent ' + item.extent + ' '
                 + '"' + absoluteFilename + '"';
             execSync(command);
+            [width, height] = item.extent.split('x');
+            item.width = width;
+            item.height = height;
             console.log('The file: ' + item.filename + ' has been extented');
         }
     });
@@ -223,7 +230,7 @@ const reloading = (items) => new Promise(resolve => {
     });
 });
 
-const animating = (items) => new Promise(resolve => {
+const shaderAnimating = (items) => new Promise(resolve => {
     const promises = [];
     items.forEach(item => {
         let frames = [];
@@ -261,6 +268,27 @@ const animating = (items) => new Promise(resolve => {
     });
 });
 
+const imagemagickAnimating = (items) => new Promise(resolve => {
+    items.forEach(item => {
+        const frames = item['animation-frames'] || 1;
+        if ('animation' in item && item.animation === 'skew-left') {
+            for (let frame = 0; frame < frames; ++frame) {
+                const absoluteFilename = path.resolve(item.filename);
+                console.log(item.width, item.height);
+                const command = 'convert "' + absoluteFilename + '" '
+                    + '-interpolate Nearest -filter point -background None -flip -affine 1,0,-' + ((frame + 1) * 0.05) + ',1,0,0 '
+                    + '-transform -crop ' + item.width + 'x' + item.height + '+0+0 +repage -flip "' + absoluteFilename.replace('.png', '-anim' + frame + '.png') + '"';
+                execSync(command);
+            }
+            
+        }
+        if ('animation' in item) {
+            console.log('The file: ' + item.filename + ' has been animated (' + item.animation + ')');
+        }
+    });
+    resolve(items);
+});
+
 const packing = () => new Promise(resolve => {
     for (let name in groups) {
         packer(groups[name], {
@@ -282,5 +310,6 @@ initialization()
     .then(extending)
     .then(blurring)
     .then(reloading)
-    .then(animating)
+    .then(shaderAnimating)
+    .then(imagemagickAnimating)
     .then(packing);
