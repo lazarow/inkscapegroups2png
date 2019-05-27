@@ -280,8 +280,10 @@ const imagemagickAnimating = (items) => new Promise(resolve => {
                     + '-interpolate Nearest -filter point -background None -flip -affine 1,0,-' + ((frame + 1) * 0.05) + ',1,0,0 '
                     + '-transform -crop ' + item.width + 'x' + item.height + '+0+0 +repage -flip "' + absoluteFilename.replace('.png', '-anim' + frame + '.png') + '"';
                 execSync(command);
+                if ('pack' in item) {
+                    groups[item.pack].push(filename.replace('.png', '-anim' + frame + '.png'));
+                }
             }
-            
         }
         if ('animation' in item) {
             console.log('The file: ' + item.filename + ' has been animated (' + item.animation + ')');
