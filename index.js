@@ -253,6 +253,19 @@ const shaderAnimating = (items) => new Promise(resolve => {
                 next[idx + 3] = previous[_idx + 3];
             }, item['animation-frames'] || 1);
         }
+        if ('animation' in item && item.animation === 'bloom') {
+            frames = JimpExtra.getShaderAnimationFrames(item.image, (previous, next, x, y, idx, width, height) => {
+                let brightness = (0.299 * previous[idx] + 0.587 * previous[idx + 1] + 0.114 * previous[idx + 2]);
+                if (brightness < (item['brightness-cutoff'] || 200)) {
+                    next[idx] = 255;
+                    next[idx + 1] = 255;
+                    next[idx + 2] = 255;
+                    next[idx + 3] = 0;
+                }
+            }, 1);
+            promises.push(frames[0].writeAsync(options.out + '/' + item.export + '-bloom' + '.png'));
+            frames = [];
+        }
         for (let frameKey in frames) {
             const filename = options.out + '/' + item.export + '-anim' + frameKey + '.png';
             promises.push(frames[frameKey].writeAsync(filename));
@@ -275,13 +288,36 @@ const imagemagickAnimating = (items) => new Promise(resolve => {
         if ('animation' in item && item.animation === 'skew-left') {
             for (let frame = 0; frame < frames; ++frame) {
                 const absoluteFilename = path.resolve(item.filename);
-                console.log(item.width, item.height);
                 const command = 'convert "' + absoluteFilename + '" '
                     + '-interpolate Nearest -filter point -background None -flip -affine 1,0,-' + ((frame + 1) * 0.05) + ',1,0,0 '
                     + '-transform -crop ' + item.width + 'x' + item.height + '+0+0 +repage -flip "' + absoluteFilename.replace('.png', '-anim' + frame + '.png') + '"';
                 execSync(command);
                 if ('pack' in item) {
-                    groups[item.pack].push(filename.replace('.png', '-anim' + frame + '.png'));
+                    groups[item.pack].push(item.filename.replace('.png', '-anim' + frame + '.png'));
+                }
+            }
+        }
+        if ('animation' in item && item.animation === 'bloom') {
+            for (let frame = 0; frame < frames; ++frame) {
+                const absoluteFilename = path.resolve(item.filename);
+                const brightness = Math.floor((item['max-brightness'] || 25) * (frame + 1) / frames);
+                const minGlow = item['min-glow'] || 15;
+                const glowStep = ((item['max-glow'] || 75) - minGlow) / frames;
+                const glow = minGlow + glowStep * (frames - frame - 1);
+                let command = 'convert -brightness-contrast ' + brightness + 'x0 ' + absoluteFilename.replace('.png', '-bloom.png') + ' '
+                    + absoluteFilename.replace('.png', '-bloom-brighten.png');
+                execSync(command);
+                command = 'convert ' + absoluteFilename.replace('.png', '-bloom-brighten.png') + ' '
+                    + '( +clone -background ' + (item['glow-color'] || 'White') + ' -shadow 100x10+0+0 -channel A -level 0,' + glow + '% +channel ) '
+                    + '-background none -compose DstOver -flatten ' + absoluteFilename.replace('.png', '-bloom-glow.png');
+                execSync(command);
+                command = 'composite '
+                    + absoluteFilename.replace('.png', '-bloom-glow.png') + ' '
+                    + absoluteFilename + ' '
+                    + absoluteFilename.replace('.png', '-anim' + frame + '.png');
+                execSync(command);
+                if ('pack' in item) {
+                    groups[item.pack].push(item.filename.replace('.png', '-anim' + frame + '.png'));
                 }
             }
         }
