@@ -14,8 +14,8 @@ const options = commandLineArgs([
     { name: 'inkscape', defaultValue: '/usr/bin/inkscape'},
     { name: 'svg', defaultValue: ''},
     { name: 'out', defaultValue: ''},
-    { name: 'dpi', type: Number, defaultValue: 192},
-    { name: 'resize', type: Number, defaultValue: 100},
+    { name: 'dpi', type: Number, defaultValue: 384},
+    { name: 'resize', type: Number, defaultValue: 25},
     { name: 'texture' },
     { name: 'pixelator' }
 ]);
@@ -156,7 +156,7 @@ const pixelating = (items) => new Promise(resolve => {
             if (item['pixelator'] !== 'false') {
                 const absoluteFilename = path.resolve(item.filename);
                 const command = 'cd "' + pixelatorDir + '" && "' + options.pixelator + '" '
-                    + '--pixelate=' + (item['pixelator-pixelate'] || 3) + ' '
+                    + '--pixelate=' + (item['pixelator-pixelate'] || 4) + ' '
                     + '--smooth=' + (item['pixelator-smooth'] || 1) + ' '
                     + '--enhance=' + (item['pixelator-enchance'] || '0.0') + ' '
                     + '--palette_mode=' + (item['pixelator-palletemode'] || 'adaptive') + ' '
@@ -301,14 +301,14 @@ const imagemagickAnimating = (items) => new Promise(resolve => {
             for (let frame = 0; frame < frames; ++frame) {
                 const absoluteFilename = path.resolve(item.filename);
                 const brightness = Math.floor((item['max-brightness'] || 25) * (frame + 1) / frames);
-                const minGlow = item['min-glow'] || 15;
+                const minGlow = item['min-glow'] || 25;
                 const glowStep = ((item['max-glow'] || 75) - minGlow) / frames;
                 const glow = minGlow + glowStep * (frames - frame - 1);
                 let command = 'convert -brightness-contrast ' + brightness + 'x0 ' + absoluteFilename.replace('.png', '-bloom.png') + ' '
                     + absoluteFilename.replace('.png', '-bloom-brighten.png');
                 execSync(command);
                 command = 'convert ' + absoluteFilename.replace('.png', '-bloom-brighten.png') + ' '
-                    + '( +clone -background ' + (item['glow-color'] || 'White') + ' -shadow 100x10+0+0 -channel A -level 0,' + glow + '% +channel ) '
+                    + '( +clone -background ' + (item['glow-color'] || 'White') + ' -shadow 50x3+0+0 -channel A -level 0,' + glow + '% +channel ) '
                     + '-background none -compose DstOver -flatten ' + absoluteFilename.replace('.png', '-bloom-glow.png');
                 execSync(command);
                 command = 'composite '
