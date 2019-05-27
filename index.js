@@ -35,6 +35,7 @@ if (
     console.error('The input SVG seems to be not readable, maybe the path is invalid?');
     process.exit();
 }
+const svgDir = path.dirname(options.svg);
 if (
     fs.existsSync(options.out) === false
     && fs.mkdirSync(options.out, { recursive: true }) === false
@@ -49,7 +50,7 @@ if (fs.accessSync(options.out, fs.constants.W_OK) === false) {
 fsExtra.emptyDirSync(options.out);
 if (
     'texture' in options
-    && (fs.existsSync(options.texture) === false || fs.accessSync(options.texture, fs.constants.R_OK) === false)
+    && (fs.existsSync(svgDir + '/' + options.texture) === false || fs.accessSync(svgDir + '/' + options.texture, fs.constants.R_OK) === false)
 ) {
     console.error('The mask texture seems to be not readable, maybe the path is invalid?');
     process.exit();
@@ -77,7 +78,6 @@ String.prototype.matchAll = function (regexp) {
 };
 // </editor-fold>
 
-const svgDir = path.dirname(options.svg);
 const textures = {};
 const groups = {};
 
