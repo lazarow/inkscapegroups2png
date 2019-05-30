@@ -136,7 +136,7 @@ const addingTextures = (items) => new Promise(resolve => {
     const promises = [];
     items.forEach(item => {
         if ('texture' in item) {
-            JimpExtra.mask(item.image, textures[item.texture], item['textured-color']);
+            JimpExtra.mask(item.image, textures[item.texture], item['textured-color'], item['opacity-factor'] || 1);
         } else if ('texture' in options ) {
             JimpExtra.mask(item.image, textures['texture']);
         }
