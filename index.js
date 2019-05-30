@@ -116,12 +116,11 @@ const generating = (items) => new Promise(resolve => {
         console.log('The element ' + item.export + ' has been exported');
         promises.push(Jimp.read(options.out + '/' + item.export + '.png').then(image => {
             item.filename = options.out + '/' + item.export + '.png';
-            if ('pack' in item) {
-                if (item.pack in groups === false) {
-                    groups[item.pack] = [];
-                }
-                groups[item.pack].push(item.filename);
+            item.pack = item.pack || 'spritesheet';
+            if (item.pack in groups === false) {
+                groups[item.pack] = [];
             }
+            groups[item.pack].push(item.filename);
             item.image = image;
             item.width = image.bitmap.width;
             item.height = image.bitmap.height;
