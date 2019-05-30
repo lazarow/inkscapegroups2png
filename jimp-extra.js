@@ -1,9 +1,19 @@
 module.exports = {
-    mask(image, mask) {
+    mask(image, mask, texturedColor) {
+        if (texturedColor !== undefined) {
+            texturedColor = texturedColor.split(',');
+        }
         image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
             let hasAlpha = image.bitmap.data[idx + 3] > 0;
             let isWhite = image.bitmap.data[idx] === 255 && image.bitmap.data[idx + 1] === 255 && image.bitmap.data[idx + 2] === 255;
-            if (hasAlpha && ! isWhite) {
+            let isTexturedColor = texturedColor === undefined
+                ? true
+                : (
+                    image.bitmap.data[idx] == texturedColor[0]
+                    && image.bitmap.data[idx + 1] == texturedColor[1]
+                    && image.bitmap.data[idx + 2] == texturedColor[2]
+                );
+            if (hasAlpha && ! isWhite && isTexturedColor) {
                 /**
                  * @url: https://www.w3.org/TR/compositing/#simplealphacompositing
                  */
