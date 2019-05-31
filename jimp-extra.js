@@ -29,6 +29,16 @@ module.exports = {
             }
         });
     },
+    removeMagenta(image) {
+        image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
+            let isMagenta = image.bitmap.data[idx] == 255
+                && image.bitmap.data[idx + 1] == 0
+                && image.bitmap.data[idx + 2] == 255;
+            if (isMagenta) {
+                image.bitmap.data[idx + 3] = 0;
+            }
+        });
+    },
     getShaderAnimationFrames(image, pixelShader, nofFrames = 3) {
         const frames = [];
         const next = image.clone();

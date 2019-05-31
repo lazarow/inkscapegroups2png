@@ -80,6 +80,7 @@ String.prototype.matchAll = function (regexp) {
 
 const textures = {};
 const groups = {};
+const exportsIds = [];
 
 const initialization = () => new Promise(resolve => {
     const promises = [];
@@ -97,6 +98,11 @@ const initialization = () => new Promise(resolve => {
                 promises.push(Jimp.read(svgDir + '/' + match[2]).then(image => (textures[match[2]] = image)));
             }
         }
+        if (exportsIds.indexOf(item.export) !== -1) {
+            console.error('The export ID: ' + item.export + ' has been used more than once!');
+            process.exit(item.export);
+        }
+        exportsIds.push()
         return item;
     });
     if ('texture' in options) {
@@ -126,6 +132,17 @@ const generating = (items) => new Promise(resolve => {
             item.height = image.bitmap.height;
         }));
         return item;
+    });
+    Promise.all(promises).then(() => {
+        resolve(items);
+    });
+});
+
+const removeMagenta = (items) => new Promise(resolve => {
+    const promises = [];
+    items.forEach(item => {
+        JimpExtra.removeMagenta(item.image);
+        promises.push(item.image.writeAsync(item.filename));
     });
     Promise.all(promises).then(() => {
         resolve(items);
@@ -162,9 +179,10 @@ const pixelating = (items) => new Promise(resolve => {
                     + '--colors=' + (item['pixelator-colors'] || '256') + ' '
                     + '--override '
                     + '--stroke=' + (item['pixelator-stroke'] || 'none') + ' '
+                    + '--refine_edges 64 '
                     + '"'
                     + absoluteFilename + '" "' + absoluteFilename + '"';
-                execSync(command);
+                let output = execSync(command);
                 console.log('The file: ' + item.filename + ' has been pixelated');
             }
         });
@@ -342,6 +360,7 @@ const packing = () => new Promise(resolve => {
 
 initialization()
     .then(generating)
+    .then(removeMagenta)
     .then(addingTextures)
     .then(pixelating)
     .then(resizing)
