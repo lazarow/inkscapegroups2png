@@ -314,6 +314,18 @@ const imagemagickAnimating = (items) => new Promise(resolve => {
                 }
             }
         }
+        if ('animation' in item && item.animation === 'skew-right') {
+            for (let frame = 0; frame < frames; ++frame) {
+                const absoluteFilename = path.resolve(item.filename);
+                const command = 'convert "' + absoluteFilename + '" '
+                    + '-interpolate Nearest -filter point -background None -flip -affine 1,0,' + ((frame + 1) * 0.05) + ',1,0,0 '
+                    + '-transform -crop ' + item.width + 'x' + item.height + '+0+0 +repage -flip "' + absoluteFilename.replace('.png', '-anim' + frame + '.png') + '"';
+                execSync(command);
+                if ('pack' in item) {
+                    groups[item.pack].push(item.filename.replace('.png', '-anim' + frame + '.png'));
+                }
+            }
+        }
         if ('animation' in item && item.animation === 'bloom') {
             for (let frame = 0; frame < frames; ++frame) {
                 const absoluteFilename = path.resolve(item.filename);
