@@ -25,6 +25,6 @@
     "executable": "^4.1.1",
     "fs-extra": "^8.0.1",
     "gamefroot-texture-packer": "^1.1.2",
-    "jimp": "^0.6.4"
+    "jimp": "^0.22.7"
   }
 }
